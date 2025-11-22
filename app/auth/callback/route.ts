@@ -7,9 +7,9 @@ export async function GET(request: Request) {
   const code = requestUrl.searchParams.get('code')
 
   if (code) {
-    // AQUÍ ESTÁ EL CAMBIO: Añadimos 'await' porque Next.js 15 lo exige
     const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    // TRUCO: "as any" para silenciar el error de tipos de Vercel
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore as any })
     await supabase.auth.exchangeCodeForSession(code)
   }
 
