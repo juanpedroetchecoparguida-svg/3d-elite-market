@@ -1,10 +1,11 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { Upload, ArrowLeft, Loader2, Image as ImageIcon, Package, Truck, CheckCircle, X, Users, Calendar, Crown, DollarSign, History, FileCode, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+// IMPORTAMOS EL ARCHIVO MAESTRO
+import { PRODUCT_CATEGORIES } from '../constants';
 
 export default function SellerDashboard() {
   const supabase = createClientComponentClient();
@@ -16,12 +17,9 @@ export default function SellerDashboard() {
   const [shipments, setShipments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Estados Formularios
   const [uploading, setUploading] = useState(false);
-  // CAMBIO: Ahora manejamos un ARRAY de archivos para la galería
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
 
-  // Estados Modales
   const [showTrackingModal, setShowTrackingModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   
@@ -35,7 +33,10 @@ export default function SellerDashboard() {
   const loadData = async () => {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!session) {
+        router.push('/'); 
+        return;
+    }
 
     const { data: myProducts } = await supabase.from('products').select('id').eq('owner_id', session.user.id);
     
@@ -55,7 +56,8 @@ export default function SellerDashboard() {
 
         const { data: allShipments } = await supabase
             .from('shipments')
-            .select('*');
+            .select('*')
+            .in('product_id', productIds);
             
         if (allShipments) setShipments(allShipments);
     }
@@ -90,15 +92,14 @@ export default function SellerDashboard() {
     });
 
     if (!error) {
-        alert('¡Envío mensual registrado!');
+        alert('¡Envío registrado! El cliente lo verá en su perfil.');
         setShowShipmentModal(false);
-        loadData();
+        loadData(); 
     } else {
         alert('Error: ' + error.message);
     }
   };
 
-  // --- NUEVA LÓGICA DE PUBLICAR CON GALERÍA ---
   const handlePublish = async (e: any) => {
     e.preventDefault();
     if (galleryFiles.length === 0) return alert('Sube al menos una imagen.');
@@ -110,7 +111,6 @@ export default function SellerDashboard() {
         
         const galleryUrls: string[] = [];
 
-        // Subir todas las fotos una por una
         for (const file of galleryFiles) {
             const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}-${file.name}`;
             const { error: uploadError } = await supabase.storage.from('products').upload(fileName, file);
@@ -120,7 +120,6 @@ export default function SellerDashboard() {
             galleryUrls.push(publicUrl);
         }
 
-        // La primera foto será la principal (image_url), el resto va a la galería
         const mainImage = galleryUrls[0];
 
         await supabase.from('products').insert({
@@ -129,13 +128,14 @@ export default function SellerDashboard() {
             price: parseFloat(form.price.value),
             category: form.category.value,
             country: form.country.value,
-            image_url: mainImage,     // Foto principal (Portada)
-            gallery: galleryUrls,     // Todas las fotos (Array)
+            image_url: mainImage,     
+            gallery: galleryUrls,     
             owner_id: session?.user.id
         });
 
         alert('¡Producto Publicado!');
-        setGalleryFiles([]); // Limpiar
+        setGalleryFiles([]); 
+        form.reset();
         loadData();
         setActiveTab('sales');
     } catch (error: any) {
@@ -147,9 +147,8 @@ export default function SellerDashboard() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files.length > 0) {
-          // Convertir FileList a Array y sumar a lo que ya había
           const newFiles = Array.from(e.target.files);
-          setGalleryFiles(prev => [...prev, ...newFiles]);
+          setGalleryFiles(prev => [...prev, ...newFiles].slice(0, 5));
       }
   };
 
@@ -168,24 +167,23 @@ export default function SellerDashboard() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-4">
                 <button onClick={() => router.push('/')} className="bg-black p-2 rounded-full hover:bg-white hover:text-black transition-all"><ArrowLeft className="w-5 h-5"/></button>
-                <h1 className="font-bold text-xl tracking-tight">Maker<span className="text-emerald-400">Studio</span></h1>
+                <h1 className="font-bold text-xl tracking-tight">Maker<span className="text-emerald-400">Studio</span> <span className="text-xs bg-emerald-900/30 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30 ml-2">Vendedor</span></h1>
             </div>
             <div className="flex bg-black rounded-lg p-1 overflow-x-auto">
                 <button onClick={() => setActiveTab('sales')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'sales' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}>Ventas</button>
                 <button onClick={() => setActiveTab('subs')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'subs' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}>Suscriptores</button>
-                <button onClick={() => setActiveTab('publish')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'publish' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}>Publicar</button>
+                <button onClick={() => setActiveTab('publish')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'publish' ? 'bg-white text-black' : 'text-emerald-400 hover:text-white'}`}>Publicar Nuevo</button>
             </div>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto p-4 md:p-8">
         
-        {/* VENTAS */}
         {activeTab === 'sales' && (
             <div>
                 <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Package className="text-emerald-400"/> Pedidos Unitarios</h2>
-                {loading ? <div className="text-center text-gray-500">Cargando...</div> : sales.length === 0 ? (
-                    <div className="text-center py-20 border border-dashed border-white/10 rounded-2xl text-gray-500">Sin ventas pendientes.</div>
+                {loading ? <div className="text-center text-gray-500">Cargando tus ventas...</div> : sales.length === 0 ? (
+                    <div className="text-center py-20 border border-dashed border-white/10 rounded-2xl text-gray-500">No tienes ventas directas aún.</div>
                 ) : (
                     <div className="grid gap-4">
                         {sales.map((sale) => (
@@ -201,7 +199,7 @@ export default function SellerDashboard() {
                                             </span>
                                             <span className="text-xs text-gray-500 uppercase tracking-wide">{sale.type}</span>
                                         </div>
-                                        <p className="text-xs text-gray-500 mt-1">Cliente: {sale.user_id.slice(0,8)}...</p>
+                                        <p className="text-xs text-gray-500 mt-1">Cliente: {sale.user_email}</p>
                                     </div>
                                 </div>
                                 {sale.status === 'shipped' ? (
@@ -222,12 +220,11 @@ export default function SellerDashboard() {
             </div>
         )}
 
-        {/* SUSCRIPTORES */}
         {activeTab === 'subs' && (
             <div>
                 <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Users className="text-purple-400"/> Suscriptores Activos</h2>
-                {loading ? <div className="text-center text-gray-500">Cargando...</div> : subscribers.length === 0 ? (
-                    <div className="text-center py-20 border border-dashed border-white/10 rounded-2xl text-gray-500">No tienes suscriptores aún.</div>
+                {loading ? <div className="text-center text-gray-500">Cargando tus suscriptores...</div> : subscribers.length === 0 ? (
+                    <div className="text-center py-20 border border-dashed border-white/10 rounded-2xl text-gray-500">No tienes suscriptores en tus productos aún.</div>
                 ) : (
                     <div className="grid gap-4">
                         {subscribers.map((sub) => {
@@ -246,7 +243,7 @@ export default function SellerDashboard() {
                                             <div className="flex items-center gap-2 text-purple-300 font-bold text-sm mt-1 bg-purple-900/20 px-2 py-0.5 rounded w-fit">
                                                 <DollarSign className="w-3 h-3"/> 9.00 / mes
                                             </div>
-                                            <p className="text-xs text-gray-500 mt-2">Suscriptor: {sub.user_id.slice(0,8)}...</p>
+                                            <p className="text-xs text-gray-500 mt-2">Suscriptor: {sub.user_email}</p>
                                             
                                             {shipment && (
                                                 <div className="mt-2 flex items-center gap-2 text-xs text-emerald-400 font-bold border border-emerald-500/30 px-2 py-1 rounded w-fit bg-emerald-900/10">
@@ -280,44 +277,27 @@ export default function SellerDashboard() {
             </div>
         )}
 
-        {/* PUBLICAR (AHORA CON MULTI-FOTO) */}
         {activeTab === 'publish' && (
             <div className="max-w-xl mx-auto">
                 <form onSubmit={handlePublish} className="space-y-6 bg-[#111] p-8 rounded-2xl border border-white/10">
                     
-                    {/* SUBIDA MULTIPLE */}
                     <div className="space-y-4">
                         <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider">Fotos del Producto (Máx 5)</label>
                         <div className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center hover:border-emerald-500/50 transition-colors cursor-pointer relative group bg-black/50">
-                            <input 
-                                type="file" 
-                                accept="image/*" 
-                                multiple // PERMITE VARIOS
-                                onChange={handleFileChange} 
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                            />
+                            <input type="file" accept="image/*" multiple onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"/>
                             <div className="flex flex-col items-center justify-center gap-2 pointer-events-none">
                                 <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
                                     <ImageIcon className="w-6 h-6 text-gray-400 group-hover:text-emerald-400"/>
                                 </div>
-                                <p className="text-sm text-gray-300 font-bold">Arrastra fotos aquí o haz clic</p>
-                                <p className="text-xs text-gray-500">Sube varias fotos para mostrar detalles</p>
+                                <p className="text-sm text-gray-300 font-bold">Arrastra fotos o haz clic</p>
                             </div>
                         </div>
-
-                        {/* PREVISUALIZACIÓN DE FOTOS SELECCIONADAS */}
                         {galleryFiles.length > 0 && (
                             <div className="grid grid-cols-4 gap-2">
                                 {galleryFiles.map((file, idx) => (
                                     <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-white/20 group">
                                         <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" />
-                                        <button 
-                                            type="button"
-                                            onClick={() => removeFile(idx)}
-                                            className="absolute top-1 right-1 bg-red-500 p-1 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <Trash2 className="w-3 h-3"/>
-                                        </button>
+                                        <button type="button" onClick={() => removeFile(idx)} className="absolute top-1 right-1 bg-red-500 p-1 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3"/></button>
                                         {idx === 0 && <div className="absolute bottom-0 left-0 w-full bg-emerald-600 text-[10px] text-center text-white font-bold">PORTADA</div>}
                                     </div>
                                 ))}
@@ -325,30 +305,38 @@ export default function SellerDashboard() {
                         )}
                     </div>
 
-                    <input name="title" required className="w-full bg-black border-white/20 rounded-lg p-3 text-white" placeholder="Nombre del Producto" />
+                    <input name="title" required className="w-full bg-black border-white/20 rounded-lg p-3 text-white font-bold" placeholder="Nombre del Producto" />
                     
                     <div className="grid grid-cols-2 gap-4">
-                        <input name="price" type="number" step="0.01" required className="w-full bg-black border-white/20 rounded-lg p-3 text-white" placeholder="Precio $" />
-                        <select name="country" className="w-full bg-black border-white/20 rounded-lg p-3 text-white">
-                            <option value="Argentina">Argentina</option>
-                            <option value="España">España</option>
-                            <option value="Mexico">Mexico</option>
+                        <div className="relative">
+                            <span className="absolute left-3 top-3 text-gray-400">$</span>
+                            <input name="price" type="number" step="0.01" required className="w-full bg-black border-white/20 rounded-lg p-3 pl-8 text-white font-bold" placeholder="Precio" />
+                        </div>
+                        <select name="country" className="w-full bg-black border-white/20 rounded-lg p-3 text-white font-bold">
+                            <option value="Argentina">🇦🇷 Argentina</option>
+                            <option value="España">🇪🇸 España</option>
+                            <option value="Mexico">🇲🇽 Mexico</option>
+                            <option value="Colombia">🇨🇴 Colombia</option>
+                            <option value="USA">🇺🇸 USA</option>
                         </select>
                     </div>
                     
-                    <select name="category" className="w-full bg-black border-white/20 rounded-lg p-3 text-white">
-                        <option value="Dragon Ball 3D">Dragon Ball 3D</option>
-                        <option value="SXTOYS 3D">SXTOYS 3D</option>
-                        <option value="Gadgets">Gadgets</option>
-                        <option value="Anime">Anime</option>
-                        <option value="Mascotas 3D">Mascotas 3D</option>
-                        <option value="Plantas 3D">Plantas 3D</option>
+                    {/* SELECTOR DE CATEGORÍAS DINÁMICO - USA EL ARCHIVO MAESTRO */}
+                    <select name="category" required className="w-full bg-black border-white/20 rounded-lg p-3 text-white font-bold appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2087.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%20100c3.6-3.6%205.4-7.8%205.4-12.8%200-5-1.8-9.3-5.4-12.9z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[length:12px] bg-[right_1rem_center] pr-10">
+                        <option value="" disabled selected>Selecciona una Categoría</option>
+                        {PRODUCT_CATEGORIES.map((group, idx) => (
+                            <optgroup key={idx} label={group.group} className={`${group.colorClass} font-bold`}>
+                                {group.options.map((option, optIdx) => (
+                                    <option key={optIdx} className="text-white" value={option}>{option}</option>
+                                ))}
+                            </optgroup>
+                        ))}
                     </select>
                     
-                    <textarea name="description" required className="w-full bg-black border-white/20 rounded-lg p-3 text-white h-32" placeholder="Descripción..." />
+                    <textarea name="description" required className="w-full bg-black border-white/20 rounded-lg p-3 text-white h-32" placeholder="Descripción detallada del producto y qué incluye la suscripción..." />
                     
-                    <button type="submit" disabled={uploading} className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl hover:bg-emerald-500 flex justify-center gap-2">
-                        {uploading ? <Loader2 className="animate-spin"/> : <Upload className="w-5 h-5"/>} Publicar
+                    <button type="submit" disabled={uploading || galleryFiles.length === 0} className="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-500 flex justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        {uploading ? <Loader2 className="animate-spin"/> : <Upload className="w-5 h-5"/>} PUBLICAR PRODUCTO
                     </button>
                 </form>
             </div>
@@ -356,16 +344,16 @@ export default function SellerDashboard() {
 
       </div>
 
-      {/* MODALES MANTENIDOS IGUAL... */}
+      {/* MODALES... (El resto del archivo sigue igual, ya lo has copiado todo) */}
       {showTrackingModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
             <div className="bg-[#111] border border-white/10 w-full max-w-md p-6 rounded-2xl relative">
                 <button onClick={() => setShowTrackingModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X className="w-5 h-5"/></button>
-                <h3 className="text-xl font-bold text-white mb-4">Despachar Pedido</h3>
+                <h3 className="text-xl font-bold text-white mb-4">Despachar Pedido Físico</h3>
                 <form onSubmit={confirmShipping} className="space-y-4">
-                    <input name="company" required placeholder="Empresa (ej: Correo Arg)" className="w-full bg-black border border-white/20 rounded-lg p-3 text-white"/>
-                    <input name="code" required placeholder="Código Tracking" className="w-full bg-black border border-white/20 rounded-lg p-3 text-white font-mono"/>
-                    <button type="submit" className="w-full bg-white text-black font-bold py-3 rounded-xl mt-2">Confirmar</button>
+                    <input name="company" required placeholder="Empresa de Transporte (ej: Correo Arg)" className="w-full bg-black border border-white/20 rounded-lg p-3 text-white"/>
+                    <input name="code" required placeholder="Código de Seguimiento (Tracking)" className="w-full bg-black border border-white/20 rounded-lg p-3 text-white font-mono"/>
+                    <button type="submit" className="w-full bg-white text-black font-bold py-3 rounded-xl mt-2 hover:bg-gray-200 transition-colors">Confirmar Despacho</button>
                 </form>
             </div>
         </div>
@@ -375,25 +363,29 @@ export default function SellerDashboard() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
             <div className="bg-[#111] border border-purple-500/30 w-full max-w-md p-6 rounded-2xl relative shadow-lg shadow-purple-900/20">
                 <button onClick={() => setShowShipmentModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X className="w-5 h-5"/></button>
-                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Calendar className="text-purple-400"/> Registrar Caja Mensual</h3>
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Calendar className="text-purple-400"/> Registrar Caja del Mes</h3>
                 <form onSubmit={confirmMonthlyShipment} className="space-y-4">
                     <div>
-                        <label className="text-xs font-bold text-gray-500">MES</label>
-                        <select name="month" className="w-full bg-black border border-white/20 rounded-lg p-3 text-white mt-1">
-                            <option>Noviembre 2025</option>
-                            <option>Diciembre 2025</option>
-                            <option>Enero 2026</option>
+                        <label className="text-xs font-bold text-gray-500 mb-1 block">MES DEL ENVÍO</label>
+                        <select name="month" className="w-full bg-black border border-white/20 rounded-lg p-3 text-white font-bold">
+                            {Array.from({ length: 6 }, (_, i) => {
+                                const d = new Date();
+                                d.setMonth(d.getMonth() + i);
+                                return d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+                            }).map(monthStr => (
+                                <option key={monthStr} value={monthStr.charAt(0).toUpperCase() + monthStr.slice(1)}>{monthStr.charAt(0).toUpperCase() + monthStr.slice(1)}</option>
+                            ))}
                         </select>
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500">CONTENIDO DE LA CAJA</label>
-                        <input name="content" required placeholder="Ej: Figura Goku SSJ + Llavero" className="w-full bg-black border border-white/20 rounded-lg p-3 text-white mt-1"/>
+                        <label className="text-xs font-bold text-gray-500 mb-1 block">CONTENIDO DE LA CAJA</label>
+                        <input name="content" required placeholder="Ej: Figura Goku SSJ + Llavero + Stickers" className="w-full bg-black border border-white/20 rounded-lg p-3 text-white"/>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <input name="company" required placeholder="Correo" className="w-full bg-black border border-white/20 rounded-lg p-3 text-white"/>
-                        <input name="code" required placeholder="Tracking" className="w-full bg-black border border-white/20 rounded-lg p-3 text-white font-mono"/>
+                        <input name="company" required placeholder="Empresa Transporte" className="w-full bg-black border border-white/20 rounded-lg p-3 text-white"/>
+                        <input name="code" required placeholder="Tracking ID" className="w-full bg-black border border-white/20 rounded-lg p-3 text-white font-mono"/>
                     </div>
-                    <button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl mt-2">Registrar Envío</button>
+                    <button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl mt-2 transition-colors">Registrar Envío Mensual</button>
                 </form>
             </div>
         </div>
