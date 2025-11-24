@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Search, ShoppingCart, User, Crown, Filter, X, Menu, ArrowRight } from 'lucide-react';
+import { Search, ShoppingCart, User, Crown, Filter, X, Package, ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 // IMPORTAMOS EL ARCHIVO MAESTRO
@@ -11,14 +11,13 @@ import { PRODUCT_CATEGORIES } from './constants';
 export default function EliteMarketplace() {
   const supabase = createClientComponentClient();
   const router = useRouter();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  // Nuevo estado para la categoría seleccionada
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const getUser = async () => {
@@ -29,7 +28,6 @@ export default function EliteMarketplace() {
     fetchProducts();
   }, []);
 
-  // Función de búsqueda actualizada para filtrar por texto Y categoría
   useEffect(() => {
     if (searchTerm.length > 2 || searchTerm.length === 0) {
         fetchProducts();
@@ -44,7 +42,6 @@ export default function EliteMarketplace() {
         query = query.ilike('title', `%${searchTerm}%`);
     }
     
-    // FILTRADO POR CATEGORÍA
     if (selectedCategory) {
         query = query.eq('category', selectedCategory);
     }
@@ -56,8 +53,17 @@ export default function EliteMarketplace() {
 
   const handleCategoryClick = (category: string | null) => {
       setSelectedCategory(category);
-      setIsMobileMenuOpen(false); // Cerrar menú móvil al seleccionar
-      window.scrollTo(0, 0); // Subir arriba
+      // No hacemos scroll top abrupto, dejamos que fluya
+  };
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+        const scrollAmount = 300;
+        scrollContainerRef.current.scrollBy({
+            left: direction === 'left' ? -scrollAmount : scrollAmount,
+            behavior: 'smooth'
+        });
+    }
   };
 
   return (
@@ -68,11 +74,8 @@ export default function EliteMarketplace() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             
-            {/* LOGO Y MENÚ MÓVIL */}
+            {/* LOGO */}
             <div className="flex items-center gap-4">
-                <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-gray-400 hover:text-white">
-                    <Menu className="w-6 h-6"/>
-                </button>
                 <Link href="/" className="flex items-center gap-2 group">
                   <div className="bg-white/10 p-2 rounded-xl group-hover:bg-emerald-500/20 transition-all">
                     <Crown className="w-6 h-6 text-emerald-500" />
@@ -109,68 +112,61 @@ export default function EliteMarketplace() {
         </div>
       </nav>
 
-      {/* LAYOUT PRINCIPAL (SIDEBAR + GRID) */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16 flex gap-8 relative">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16">
         
-        {/* SIDEBAR (ESCRITORIO) - LEYENDO DEL ARCHIVO MAESTRO */}
-        <aside className="hidden md:block w-72 shrink-0 sticky top-28 h-fit">
-            <div className="bg-[#111] border border-white/10 rounded-2xl p-6">
-                <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Filter className="w-5 h-5 text-emerald-400"/> Categorías</h3>
-                
+        {/* ================================================================================== */}
+        {/* NUEVO CARRUSEL HORIZONTAL TIPO "RULETA" */}
+        {/* ================================================================================== */}
+        <div className="relative mb-10 group">
+            {/* Botones de scroll para desktop */}
+            <button onClick={() => scroll('left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-black/80 p-2 rounded-full border border-white/10 text-white opacity-0 group-hover:opacity-100 transition-opacity hidden md:block hover:bg-emerald-500 hover:border-emerald-500"><ChevronLeft/></button>
+            <button onClick={() => scroll('right')} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-black/80 p-2 rounded-full border border-white/10 text-white opacity-0 group-hover:opacity-100 transition-opacity hidden md:block hover:bg-emerald-500 hover:border-emerald-500"><ChevronRight/></button>
+
+            <div 
+                ref={scrollContainerRef}
+                className="flex overflow-x-auto gap-3 py-4 scrollbar-hide snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+            >
                 {/* Botón "Ver Todo" */}
-                <button onClick={() => handleCategoryClick(null)} className={`w-full text-left px-4 py-3 rounded-xl font-bold text-sm mb-2 transition-all flex items-center justify-between group ${selectedCategory === null ? 'bg-emerald-600 text-white' : 'hover:bg-white/5 text-gray-300'}`}>
-                    <span>🔥 Ver Todo</span>
-                    {selectedCategory === null && <ArrowRight className="w-4 h-4"/>}
+                <button 
+                    onClick={() => handleCategoryClick(null)} 
+                    className={`snap-start shrink-0 px-6 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 border-2 ${selectedCategory === null ? 'bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'bg-[#111] text-gray-400 border-white/10 hover:border-white hover:text-white'}`}
+                >
+                    <Sparkles className="w-4 h-4"/> Ver Todo
                 </button>
 
-                <div className="space-y-6 mt-6">
-                    {PRODUCT_CATEGORIES.map((group, idx) => (
-                        <div key={idx}>
-                            <h4 className={`text-xs font-extrabold uppercase tracking-wider mb-3 ${group.colorClass} opacity-80 ml-2`}>{group.group.replace('--- ', '').replace(' ---', '')}</h4>
-                            <div className="space-y-1">
-                                {group.options.map((option, optIdx) => (
-                                    <button 
-                                        key={optIdx}
-                                        onClick={() => handleCategoryClick(option)}
-                                        className={`w-full text-left px-4 py-2.5 rounded-xl font-medium text-sm transition-all flex items-center justify-between group truncate ${selectedCategory === option ? 'bg-white/10 text-white border-l-4 border-emerald-500' : 'hover:bg-white/5 text-gray-400 hover:text-white border-l-4 border-transparent'}`}
-                                    >
-                                        <span className="truncate">{option}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </aside>
+                {/* Opciones de Categoría */}
+                {PRODUCT_CATEGORIES.map((group, idx) => (
+                    <React.Fragment key={idx}>
+                        {group.options.map((option, optIdx) => {
+                            // Extraemos el icono y el texto
+                            const [icon, ...textParts] = option.split(' ');
+                            const text = textParts.join(' ');
+                            const isActive = selectedCategory === option;
 
-        {/* MENÚ MÓVIL (OVERLAY) */}
-        {isMobileMenuOpen && (
-            <div className="fixed inset-0 z-[100] bg-black/95 md:hidden">
-                <div className="p-6 h-full overflow-y-auto">
-                    <div className="flex justify-between items-center mb-8">
-                        <h2 className="font-bold text-xl">Categorías</h2>
-                        <button onClick={() => setIsMobileMenuOpen(false)}><X className="w-6 h-6"/></button>
-                    </div>
-                    <button onClick={() => handleCategoryClick(null)} className="w-full text-left px-4 py-4 rounded-xl font-bold bg-emerald-600 mb-4">🔥 Ver Todo</button>
-                    <div className="space-y-8">
-                        {PRODUCT_CATEGORIES.map((group, idx) => (
-                            <div key={idx}>
-                                <h4 className={`text-sm font-bold uppercase mb-4 ${group.colorClass}`}>{group.group.replace('--- ', '').replace(' ---', '')}</h4>
-                                <div className="grid grid-cols-1 gap-2">
-                                    {group.options.map((option, optIdx) => (
-                                        <button key={optIdx} onClick={() => handleCategoryClick(option)} className="bg-white/10 p-3 rounded-xl text-sm font-medium text-left truncate">{option}</button>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                            return (
+                                <button 
+                                    key={`${idx}-${optIdx}`}
+                                    onClick={() => handleCategoryClick(option)}
+                                    className={`snap-start shrink-0 px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-3 border-2 ${isActive ? `bg-[#111] text-white ${group.colorClass.replace('text', 'border')} shadow-[0_0_15px_rgba(var(--shadow-color),0.2)]` : `bg-[#111] text-gray-400 border-white/10 hover:border-white/30 hover:text-white`}`}
+                                    // Truco para usar el color del grupo en la sombra dinámica
+                                    style={isActive ? { '--shadow-color': group.colorClass.includes('emerald') ? '16, 185, 129' : group.colorClass.includes('purple') ? '168, 85, 247' : group.colorClass.includes('blue') ? '59, 130, 246' : '236, 72, 153' } as React.CSSProperties : {}}
+                                >
+                                    <span className="text-lg">{icon}</span>
+                                    <span className="whitespace-nowrap">{text}</span>
+                                </button>
+                            );
+                        })}
+                        {/* Separador visual entre grupos */}
+                        {idx < PRODUCT_CATEGORIES.length - 1 && <div className="shrink-0 w-px bg-white/10 h-8 self-center mx-2"></div>}
+                    </React.Fragment>
+                ))}
             </div>
-        )}
+        </div>
+        {/* ================================================================================== */}
+
 
         {/* GRID DE PRODUCTOS */}
-        <main className="flex-1">
+        <main>
             {/* Buscador móvil */}
             <div className="md:hidden mb-6 relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
@@ -178,12 +174,17 @@ export default function EliteMarketplace() {
             </div>
 
             {selectedCategory && (
-                <div className="mb-6 flex items-center gap-4 bg-[#111] border border-white/10 p-4 rounded-2xl">
+                <div className="mb-8 flex items-center justify-between animate-in fade-in slide-in-from-bottom-4">
                     <div>
-                        <p className="text-xs text-gray-500 uppercase font-bold">Viendo categoría:</p>
-                        <h2 className="text-xl font-bold text-white">{selectedCategory}</h2>
+                        <p className="text-xs text-gray-500 uppercase font-bold mb-1">Filtrando por:</p>
+                        <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                            {selectedCategory.split(' ')[0]} 
+                            <span className={PRODUCT_CATEGORIES.find(g => g.options.includes(selectedCategory))?.colorClass}>{selectedCategory.split(' ').slice(1).join(' ')}</span>
+                        </h2>
                     </div>
-                    <button onClick={() => handleCategoryClick(null)} className="ml-auto bg-white/10 p-2 rounded-full hover:bg-white/20 transition-all"><X className="w-5 h-5"/></button>
+                    <button onClick={() => handleCategoryClick(null)} className="bg-white/10 p-2 px-4 rounded-full hover:bg-white hover:text-black transition-all font-bold text-sm flex items-center gap-2">
+                        <X className="w-4 h-4"/> Borrar Filtro
+                    </button>
                 </div>
             )}
 
@@ -194,8 +195,8 @@ export default function EliteMarketplace() {
             ) : products.length === 0 ? (
                 <div className="text-center py-20 text-gray-500 bg-[#111] border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center gap-4">
                     <Package className="w-12 h-12 opacity-50"/>
-                    <p className="text-lg font-bold">No hay productos aquí... todavía.</p>
-                    {selectedCategory && <button onClick={() => handleCategoryClick(null)} className="text-emerald-400 font-bold text-sm hover:underline">Ver todas las categorías</button>}
+                    <p className="text-lg font-bold">No hay productos en esta categoría... todavía.</p>
+                    {selectedCategory && <button onClick={() => handleCategoryClick(null)} className="text-emerald-400 font-bold text-sm hover:underline">Ver todo</button>}
                 </div>
             ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
